@@ -58,6 +58,8 @@ create policy "items_owner" on order_items for select
   using (exists (select 1 from orders where id = order_id and user_id = auth.uid()));
 create policy "items_admin" on order_items for select
   using (exists (select 1 from profiles where id = auth.uid() and is_admin = true));
+create policy "items_insert" on order_items for insert
+  with check (exists (select 1 from orders where id = order_id and user_id = auth.uid()));
 
 -- ─── 회원가입 시 자동 프로필 생성 트리거 ───
 create or replace function public.handle_new_user()
