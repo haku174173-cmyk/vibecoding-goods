@@ -146,6 +146,7 @@
       orderItems.map(item => ({ ...item, order_id: order.id }))
     );
 
+    const baseUrl = location.href.replace(/\/[^/]*$/, "");
     const tossPayments = TossPayments(TOSS_CLIENT_KEY);
     try {
       await tossPayments.requestPayment("카드", {
@@ -153,8 +154,8 @@
         orderId: order.id,
         orderName,
         customerName: session.user.email,
-        successUrl: `${location.origin}/payment-success.html`,
-        failUrl: `${location.origin}/payment-fail.html`,
+        successUrl: `${baseUrl}/payment-success.html`,
+        failUrl: `${baseUrl}/payment-fail.html`,
       });
     } catch (e) {
       document.getElementById("pay-btn").disabled = false;

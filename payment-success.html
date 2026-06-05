@@ -26,7 +26,7 @@
     try {
       const res = await fetch(`${SUPABASE_URL}/functions/v1/confirm-payment`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im95cmRneWVtZ3psZ3JqcHBkc3diIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA2NDIzMDQsImV4cCI6MjA5NjIxODMwNH0.UCsV-vuQF8MgL0QL1PgpklVb8kV7YSTasBJ7F4X6Bjk" },
+        headers: { "Content-Type": "application/json", "apikey": SUPABASE_ANON_KEY },
         body: JSON.stringify({ paymentKey, orderId, amount }),
       });
 
