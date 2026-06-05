@@ -57,15 +57,20 @@
   let adminSession = null;
 
   (async () => {
-    adminSession = await requireAdmin();
-    if (!adminSession) return;
-    renderNav(adminSession, true);
-    loadOrders();
-    loadProducts();
+    try {
+      adminSession = await requireAdmin();
+      if (!adminSession) return;
+      renderNav(adminSession, true);
+      loadOrders();
+      loadProducts();
+    } catch (err) {
+      document.getElementById("orders-section").innerHTML =
+        '<div class="empty" style="color:#e53935">오류: ' + err.message + '</div>';
+    }
   })();
 
   async function loadOrders() {
-    const { data: orders } = await supabase
+    const { data: orders } = await window.sbClient
       .from("orders")
       .select("*, order_items(quantity, price, products(name))")
       .order("created_at", { ascending: false });
@@ -95,7 +100,7 @@
   }
 
   async function loadProducts() {
-    const { data: products } = await supabase.from("products").select("*").order("id");
+    const { data: products } = await window.sbClient.from("products").select("*").order("id");
     const el = document.getElementById("products-section");
     if (!products || products.length === 0) { el.innerHTML = '<div class="empty">상품이 없습니다.</div>'; return; }
 
@@ -125,7 +130,7 @@
     const msg = document.getElementById("product-msg");
     if (!name || !price) { msg.style.color = "#e53935"; msg.textContent = "상품명과 가격은 필수입니다."; return; }
 
-    const { error } = await supabase.from("products").insert({ name, price, description, image_url, stock });
+    const { error } = await window.sbClient.from("products").insert({ name, price, description, image_url, stock });
     if (error) { msg.style.color = "#e53935"; msg.textContent = "추가 실패: " + error.message; return; }
 
     msg.style.color = "#388e3c";
@@ -136,7 +141,7 @@
 
   async function deleteProduct(id) {
     if (!confirm("정말 삭제하시겠습니까?")) return;
-    const { error } = await supabase.from("products").delete().eq("id", id);
+    const { error } = await window.sbClient.from("products").delete().eq("id", id);
     if (error) { alert("삭제 실패: " + error.message); return; }
     loadProducts();
   }

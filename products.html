@@ -39,15 +39,20 @@
   let products = [];
 
   (async () => {
-    session = await requireLogin();
-    if (!session) return;
+    try {
+      session = await requireLogin();
+      if (!session) return;
 
-    const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", session.user.id).single();
-    renderNav(session, profile?.is_admin);
+      const { data: profile } = await window.sbClient.from("profiles").select("is_admin").eq("id", session.user.id).single();
+      renderNav(session, profile?.is_admin);
 
-    const { data } = await supabase.from("products").select("*").order("id");
-    products = data || [];
-    renderProducts();
+      const { data } = await window.sbClient.from("products").select("*").order("id");
+      products = data || [];
+      renderProducts();
+    } catch (err) {
+      document.getElementById("product-list").innerHTML =
+        '<div class="empty" style="color:#e53935">오류: ' + err.message + '</div>';
+    }
   })();
 
   function renderProducts() {
@@ -133,7 +138,7 @@
       return { product_id: parseInt(pid), quantity: qty, price: p.price };
     });
 
-    const { data: order, error } = await supabase.from("orders").insert({
+    const { data: order, error } = await window.sbClient.from("orders").insert({
       user_id: session.user.id,
       total_amount: total,
       order_name: orderName,
@@ -142,7 +147,7 @@
 
     if (error) { alert("주문 생성 실패: " + error.message); document.getElementById("pay-btn").disabled = false; return; }
 
-    await supabase.from("order_items").insert(
+    await window.sbClient.from("order_items").insert(
       orderItems.map(item => ({ ...item, order_id: order.id }))
     );
 

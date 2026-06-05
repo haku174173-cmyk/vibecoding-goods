@@ -1,7 +1,7 @@
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window.sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 async function requireLogin() {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await window.sbClient.auth.getSession();
   if (!session) {
     window.location.href = "login.html";
     return null;
@@ -13,7 +13,7 @@ async function requireAdmin() {
   const session = await requireLogin();
   if (!session) return null;
 
-  const { data: profile } = await supabase
+  const { data: profile } = await window.sbClient
     .from("profiles")
     .select("is_admin")
     .eq("id", session.user.id)
@@ -28,7 +28,7 @@ async function requireAdmin() {
 }
 
 async function logout() {
-  await supabase.auth.signOut();
+  await window.sbClient.auth.signOut();
   window.location.href = "login.html";
 }
 

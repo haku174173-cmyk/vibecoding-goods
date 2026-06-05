@@ -22,45 +22,48 @@
 
 <script>
   (async () => {
-    const session = await requireLogin();
-    if (!session) return;
-
-    const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", session.user.id).single();
-    renderNav(session, profile?.is_admin);
-
-    const { data: orders } = await supabase
-      .from("orders")
-      .select("*, order_items(*, products(name))")
-      .eq("user_id", session.user.id)
-      .order("created_at", { ascending: false });
-
     const el = document.getElementById("orders-list");
+    try {
+      const session = await requireLogin();
+      if (!session) return;
 
-    if (!orders || orders.length === 0) {
-      el.innerHTML = '<div class="empty">아직 주문 내역이 없습니다.<br><a href="products.html" style="color:#1a73e8">상품 보러 가기</a></div>';
-      return;
-    }
+      const { data: profile } = await window.sbClient.from("profiles").select("is_admin").eq("id", session.user.id).single();
+      renderNav(session, profile?.is_admin);
 
-    const statusMap = { paid: ["결제완료", "badge-paid"], pending: ["결제대기", "badge-pending"], failed: ["결제실패", "badge-failed"] };
+      const { data: orders } = await window.sbClient
+        .from("orders")
+        .select("*, order_items(*, products(name))")
+        .eq("user_id", session.user.id)
+        .order("created_at", { ascending: false });
 
-    el.innerHTML = orders.map(order => {
-      const [statusText, badgeClass] = statusMap[order.status] || ["알수없음", "badge-pending"];
-      const date = new Date(order.created_at).toLocaleString("ko-KR");
-      const itemNames = order.order_items?.map(item => `${item.products?.name} x${item.quantity}`).join(", ") || "";
-      return `
-        <div class="order-card">
-          <div class="order-header">
-            <div>
-              <div class="order-id">주문번호: ${order.id.slice(0, 8)}...</div>
-              <div class="order-date">${date}</div>
+      if (!orders || orders.length === 0) {
+        el.innerHTML = '<div class="empty">아직 주문 내역이 없습니다.<br><a href="products.html" style="color:#1a73e8">상품 보러 가기</a></div>';
+        return;
+      }
+
+      const statusMap = { paid: ["결제완료", "badge-paid"], pending: ["결제대기", "badge-pending"], failed: ["결제실패", "badge-failed"] };
+
+      el.innerHTML = orders.map(order => {
+        const [statusText, badgeClass] = statusMap[order.status] || ["알수없음", "badge-pending"];
+        const date = new Date(order.created_at).toLocaleString("ko-KR");
+        const itemNames = order.order_items?.map(item => `${item.products?.name} x${item.quantity}`).join(", ") || "";
+        return `
+          <div class="order-card">
+            <div class="order-header">
+              <div>
+                <div class="order-id">주문번호: ${order.id.slice(0, 8)}...</div>
+                <div class="order-date">${date}</div>
+              </div>
+              <span class="badge ${badgeClass}">${statusText}</span>
             </div>
-            <span class="badge ${badgeClass}">${statusText}</span>
+            <div class="order-items-list">${itemNames}</div>
+            <div class="order-total">${order.total_amount.toLocaleString()}원</div>
           </div>
-          <div class="order-items-list">${itemNames}</div>
-          <div class="order-total">${order.total_amount.toLocaleString()}원</div>
-        </div>
-      `;
-    }).join("");
+        `;
+      }).join("");
+    } catch (err) {
+      el.innerHTML = '<div class="empty" style="color:#e53935">오류: ' + err.message + '</div>';
+    }
   })();
 </script>
 </body>
