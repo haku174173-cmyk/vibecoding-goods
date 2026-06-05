@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 / 회원가입 - VibeCoding 굿즈샵</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+</head>
+<body>
+<div class="form-wrap">
+  <h1>VibeCoding 굿즈샵</h1>
+  <div class="tab-btns">
+    <button id="tab-login" class="active" onclick="showTab('login')">로그인</button>
+    <button id="tab-signup" onclick="showTab('signup')">회원가입</button>
+  </div>
+
+  <div id="form-login">
+    <div class="form-group">
+      <label>이메일</label>
+      <input type="email" id="login-email" placeholder="example@email.com">
+    </div>
+    <div class="form-group">
+      <label>비밀번호</label>
+      <input type="password" id="login-pw" placeholder="비밀번호 입력">
+    </div>
+    <button class="btn-submit" onclick="login()">로그인</button>
+  </div>
+
+  <div id="form-signup" style="display:none">
+    <div class="form-group">
+      <label>이메일</label>
+      <input type="email" id="signup-email" placeholder="example@email.com">
+    </div>
+    <div class="form-group">
+      <label>비밀번호 (6자 이상)</label>
+      <input type="password" id="signup-pw" placeholder="비밀번호 입력">
+    </div>
+    <div class="form-group">
+      <label>비밀번호 확인</label>
+      <input type="password" id="signup-pw2" placeholder="비밀번호 다시 입력">
+    </div>
+    <button class="btn-submit" onclick="signup()">회원가입</button>
+  </div>
+
+  <p id="msg"></p>
+</div>
+
+<script>
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const msg = document.getElementById("msg");
+
+  (async () => {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session) window.location.replace("products.html");
+  })();
+
+  function showTab(tab) {
+    document.getElementById("form-login").style.display = tab === "login" ? "" : "none";
+    document.getElementById("form-signup").style.display = tab === "signup" ? "" : "none";
+    document.getElementById("tab-login").classList.toggle("active", tab === "login");
+    document.getElementById("tab-signup").classList.toggle("active", tab === "signup");
+    msg.textContent = "";
+  }
+
+  async function login() {
+    const email = document.getElementById("login-email").value.trim();
+    const password = document.getElementById("login-pw").value;
+    msg.style.color = "#e53935";
+    if (!email || !password) { msg.textContent = "이메일과 비밀번호를 입력해주세요."; return; }
+    msg.textContent = "로그인 중...";
+    msg.style.color = "#888";
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) { msg.textContent = "로그인 실패: " + error.message; msg.style.color = "#e53935"; return; }
+    window.location.replace("products.html");
+  }
+
+  async function signup() {
+    const email = document.getElementById("signup-email").value.trim();
+    const pw = document.getElementById("signup-pw").value;
+    const pw2 = document.getElementById("signup-pw2").value;
+    msg.style.color = "#e53935";
+    if (!email || !pw) { msg.textContent = "이메일과 비밀번호를 입력해주세요."; return; }
+    if (pw !== pw2) { msg.textContent = "비밀번호가 일치하지 않습니다."; return; }
+    if (pw.length < 6) { msg.textContent = "비밀번호는 6자 이상이어야 합니다."; return; }
+    msg.textContent = "가입 중...";
+    msg.style.color = "#888";
+    const { error } = await sb.auth.signUp({ email, password: pw });
+    if (error) { msg.textContent = "가입 실패: " + error.message; msg.style.color = "#e53935"; return; }
+    msg.textContent = "가입 완료! 로그인 중...";
+    msg.style.color = "#388e3c";
+    await sb.auth.signInWithPassword({ email, password: pw });
+    window.location.replace("products.html");
+  }
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Enter") return;
+    if (document.getElementById("form-login").style.display !== "none") login();
+    else signup();
+  });
+</script>
+</body>
+</html>

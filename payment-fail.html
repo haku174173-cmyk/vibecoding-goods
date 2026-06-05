@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>결제 실패 - VibeCoding 굿즈샵</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+</head>
+<body>
+<div class="result-wrap">
+  <div class="icon">❌</div>
+  <h1>결제가 취소됐습니다</h1>
+  <p id="fail-msg">결제가 완료되지 않았습니다.<br>다시 시도하거나 문의해주세요.</p>
+  <a href="products.html" class="btn-link">다시 쇼핑하기</a>
+  <a href="my-orders.html" class="btn-link secondary">내 결제내역 보기</a>
+</div>
+
+<script>
+  const params = new URLSearchParams(location.search);
+  const code = params.get("code");
+  const message = params.get("message");
+  if (message) {
+    document.getElementById("fail-msg").textContent = message;
+  }
+
+  // 실패한 주문을 failed 상태로 업데이트
+  const orderId = params.get("orderId");
+  if (orderId) {
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    sb.from("orders").update({ status: "failed" }).eq("id", orderId).then(() => {});
+  }
+</script>
+</body>
+</html>

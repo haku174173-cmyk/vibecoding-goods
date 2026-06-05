@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>내 결제내역 - VibeCoding 굿즈샵</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+</head>
+<body>
+<header>
+  <a class="logo" href="products.html">VibeCoding 굿즈샵</a>
+  <nav id="nav"></nav>
+</header>
+
+<main>
+  <h1>내 결제내역</h1>
+  <div id="orders-list"><div class="spinner">불러오는 중...</div></div>
+</main>
+
+<script>
+  (async () => {
+    const session = await requireLogin();
+    if (!session) return;
+
+    const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", session.user.id).single();
+    renderNav(session, profile?.is_admin);
+
+    const { data: orders } = await supabase
+      .from("orders")
+      .select("*, order_items(*, products(name))")
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: false });
+
+    const el = document.getElementById("orders-list");
+
+    if (!orders || orders.length === 0) {
+      el.innerHTML = '<div class="empty">아직 주문 내역이 없습니다.<br><a href="products.html" style="color:#1a73e8">상품 보러 가기</a></div>';
+      return;
+    }
+
+    const statusMap = { paid: ["결제완료", "badge-paid"], pending: ["결제대기", "badge-pending"], failed: ["결제실패", "badge-failed"] };
+
+    el.innerHTML = orders.map(order => {
+      const [statusText, badgeClass] = statusMap[order.status] || ["알수없음", "badge-pending"];
+      const date = new Date(order.created_at).toLocaleString("ko-KR");
+      const itemNames = order.order_items?.map(item => `${item.products?.name} x${item.quantity}`).join(", ") || "";
+      return `
+        <div class="order-card">
+          <div class="order-header">
+            <div>
+              <div class="order-id">주문번호: ${order.id.slice(0, 8)}...</div>
+              <div class="order-date">${date}</div>
+            </div>
+            <span class="badge ${badgeClass}">${statusText}</span>
+          </div>
+          <div class="order-items-list">${itemNames}</div>
+          <div class="order-total">${order.total_amount.toLocaleString()}원</div>
+        </div>
+      `;
+    }).join("");
+  })();
+</script>
+</body>
+</html>

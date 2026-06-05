@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>상품 목록 - VibeCoding 굿즈샵</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://js.tosspayments.com/v1/payment"></script>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+</head>
+<body>
+<header>
+  <a class="logo" href="products.html">VibeCoding 굿즈샵</a>
+  <nav id="nav"></nav>
+</header>
+
+<main>
+  <h1>상품 목록</h1>
+  <div id="product-list" class="product-grid"><div class="spinner">상품을 불러오는 중...</div></div>
+
+  <div id="cart-wrap" style="display:none">
+    <div class="cart-section">
+      <h2>장바구니</h2>
+      <div id="cart-items"></div>
+      <div class="cart-total">
+        <span>총 결제금액</span>
+        <span id="cart-total-price">0원</span>
+      </div>
+      <button class="btn-pay" id="pay-btn" onclick="startPayment()">결제하기</button>
+    </div>
+  </div>
+</main>
+
+<script>
+  let session = null;
+  let cart = {};
+  let products = [];
+
+  (async () => {
+    session = await requireLogin();
+    if (!session) return;
+
+    const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", session.user.id).single();
+    renderNav(session, profile?.is_admin);
+
+    const { data } = await supabase.from("products").select("*").order("id");
+    products = data || [];
+    renderProducts();
+  })();
+
+  function renderProducts() {
+    const el = document.getElementById("product-list");
+    if (products.length === 0) { el.innerHTML = '<div class="empty">상품이 없습니다.</div>'; return; }
+    el.innerHTML = products.map(p => `
+      <div class="product-card">
+        <img src="${p.image_url}" alt="${p.name}" loading="lazy">
+        <div class="info">
+          <div class="name">${p.name}</div>
+          <div class="desc">${p.description || ""}</div>
+          <div class="price">${p.price.toLocaleString()}원</div>
+          <div class="stock">재고: ${p.stock}개</div>
+          <button onclick="addToCart(${p.id})" ${p.stock === 0 ? "disabled" : ""}>
+            ${p.stock === 0 ? "품절" : "장바구니 담기"}
+          </button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function addToCart(pid) {
+    const p = products.find(x => x.id === pid);
+    if (!p || p.stock === 0) return;
+    cart[pid] = (cart[pid] || 0) + 1;
+    renderCart();
+  }
+
+  function renderCart() {
+    const items = Object.entries(cart).filter(([, qty]) => qty > 0);
+    const wrap = document.getElementById("cart-wrap");
+    wrap.style.display = items.length > 0 ? "" : "none";
+    if (items.length === 0) return;
+
+    let total = 0;
+    const el = document.getElementById("cart-items");
+    el.innerHTML = items.map(([pid, qty]) => {
+      const p = products.find(x => x.id == pid);
+      const subtotal = p.price * qty;
+      total += subtotal;
+      return `
+        <div class="cart-item">
+          <span class="item-name">${p.name}</span>
+          <div class="item-qty">
+            <button onclick="changeQty(${pid}, -1)">-</button>
+            <span>${qty}</span>
+            <button onclick="changeQty(${pid}, 1)">+</button>
+          </div>
+          <span class="item-price">${subtotal.toLocaleString()}원</span>
+        </div>
+      `;
+    }).join("");
+    document.getElementById("cart-total-price").textContent = total.toLocaleString() + "원";
+  }
+
+  function changeQty(pid, delta) {
+    cart[pid] = (cart[pid] || 0) + delta;
+    if (cart[pid] <= 0) delete cart[pid];
+    renderCart();
+  }
+
+  async function startPayment() {
+    const items = Object.entries(cart).filter(([, qty]) => qty > 0);
+    if (items.length === 0) { alert("장바구니가 비어있습니다."); return; }
+    if (TOSS_CLIENT_KEY === "test_ck_placeholder") {
+      alert("토스 페이먼트 클라이언트 키를 js/config.js에 설정해주세요.");
+      return;
+    }
+
+    const total = items.reduce((sum, [pid, qty]) => {
+      const p = products.find(x => x.id == pid);
+      return sum + p.price * qty;
+    }, 0);
+
+    const orderName = items.length === 1
+      ? products.find(x => x.id == items[0][0]).name
+      : `${products.find(x => x.id == items[0][0]).name} 외 ${items.length - 1}건`;
+
+    document.getElementById("pay-btn").disabled = true;
+
+    const orderItems = items.map(([pid, qty]) => {
+      const p = products.find(x => x.id == pid);
+      return { product_id: parseInt(pid), quantity: qty, price: p.price };
+    });
+
+    const { data: order, error } = await supabase.from("orders").insert({
+      user_id: session.user.id,
+      total_amount: total,
+      order_name: orderName,
+      status: "pending"
+    }).select().single();
+
+    if (error) { alert("주문 생성 실패: " + error.message); document.getElementById("pay-btn").disabled = false; return; }
+
+    await supabase.from("order_items").insert(
+      orderItems.map(item => ({ ...item, order_id: order.id }))
+    );
+
+    const tossPayments = TossPayments(TOSS_CLIENT_KEY);
+    try {
+      await tossPayments.requestPayment("카드", {
+        amount: total,
+        orderId: order.id,
+        orderName,
+        customerName: session.user.email,
+        successUrl: `${location.origin}/payment-success.html`,
+        failUrl: `${location.origin}/payment-fail.html`,
+      });
+    } catch (e) {
+      document.getElementById("pay-btn").disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
